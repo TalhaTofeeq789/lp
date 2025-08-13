@@ -4,14 +4,16 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
+import { authService } from '../services/auth';
 
 interface ChangePasswordDialogProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess: () => void;
   userEmail: string;
 }
 
-export function ChangePasswordDialog({ isOpen, onClose, userEmail }: ChangePasswordDialogProps) {
+export function ChangePasswordDialog({ isOpen, onClose, onSuccess, userEmail }: ChangePasswordDialogProps) {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -59,6 +61,15 @@ export function ChangePasswordDialog({ isOpen, onClose, userEmail }: ChangePassw
     setPasswordStrength(strength);
   }, [newPassword]);
 
+  // Debug: Log user data when component opens
+  useEffect(() => {
+    if (isOpen) {
+      const currentUser = authService.getCurrentUser();
+      console.log('Current user data:', currentUser);
+      console.log('User email from props:', userEmail);
+    }
+  }, [isOpen, userEmail]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -83,29 +94,43 @@ export function ChangePasswordDialog({ isOpen, onClose, userEmail }: ChangePassw
 
     setIsLoading(true);
     
-    // TODO: Add backend API call to change password
-    // For now, just simulate the process
-    setTimeout(() => {
-      console.log('Password change request:', { 
-        email: userEmail, 
-        oldPassword: '***', 
-        newPassword: '***' 
-      });
+    try {
+      // Call the backend API to change password
+      const result = await authService.changePassword(oldPassword, newPassword);
       
-      // Simulate success for now
+      if (result.status === 'success') {
+        // Success - reset form and call success callback
+        setOldPassword('');
+        setNewPassword('');
+        setIsLoading(false);
+        
+        // Call the success callback to show success dialog
+        onSuccess();
+        
+        console.log('Password changed successfully!');
+      } else {
+        throw new Error(result.message || 'Password change failed');
+      }
+    } catch (error: any) {
       setIsLoading(false);
-      setOldPassword('');
-      setNewPassword('');
-      onClose();
       
-      // In real implementation, you would make API call here:
-      // try {
-      //   await authService.changePassword(oldPassword, newPassword);
-      //   // Handle success
-      // } catch (error) {
-      //   setError('Failed to change password. Please check your old password.');
-      // }
-    }, 1000);
+      // Handle specific error messages from the API
+      if (error.message.includes('Old password is incorrect') || 
+          error.message.includes('invalid') || 
+          error.message.includes('incorrect')) {
+        setError('Current password is incorrect. Please try again.');
+      } else if (error.message.includes('not authenticated')) {
+        setError('Session expired. Please log in again.');
+      } else if (error.message.includes('UID, email, old password, and new password are required')) {
+        setError('Missing required information. Please try logging out and back in.');
+      } else if (error.message.includes('Missing required information')) {
+        setError('Session data is incomplete. Please log out and back in.');
+      } else {
+        setError(error.message || 'Failed to change password. Please try again.');
+      }
+      
+      console.error('Password change error:', error);
+    }
   };
 
   const handleClose = () => {

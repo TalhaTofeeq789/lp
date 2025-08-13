@@ -5,6 +5,9 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
+import { ForgotPasswordDialog } from './ForgotPasswordDialog';
+import { ResetSuccessDialog } from './ResetSuccessDialog';
+import { ResetErrorDialog } from './ResetErrorDialog';
 import { useDarkMode } from './DarkModeContext';
 import { authService, getAuthErrorMessage } from '../services/auth';
 
@@ -18,6 +21,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetErrorMessage, setResetErrorMessage] = useState('');
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,17 +38,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       const result = await authService.signInWithEmailAndPassword(email, password);
       console.log('User signed in successfully:', result.user);
       
-      // Store user info and token in localStorage for persistence
-      localStorage.setItem('optimizeHub-user', JSON.stringify({
-        uid: result.user.uid,
-        email: result.user.email,
-        displayName: result.user.displayName,
-        username: result.user.username
-      }));
-      
-      if (result.token) {
-        localStorage.setItem('optimizeHub-token', result.token);
-      }
+      // The AuthService now automatically stores the user data and token
+      // No need to manually store them here anymore
       
       // Call the onLogin callback to update app state
       onLogin();
@@ -54,7 +53,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     }
   };
 
+  const handleResetSuccess = (email: string) => {
+    setResetEmail(email);
+    setShowResetDialog(false);
+    setShowSuccessDialog(true);
+  };
 
+  const handleResetError = (message: string) => {
+    setResetErrorMessage(message);
+    setShowErrorDialog(true);
+    // Note: We don't close the forgot password dialog here as requested
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20 flex items-center justify-center p-4 relative">
@@ -155,6 +164,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </Alert>
               )}
 
+              {/* Forgot Password Link */}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="link"
+                  onClick={() => setShowResetDialog(true)}
+                  className="text-chart-1 hover:text-chart-1/90 p-0 h-auto font-medium"
+                >
+                  Forgot Password?
+                </Button>
+              </div>
+
               {/* Sign In Button */}
               <Button
                 type="submit"
@@ -182,6 +203,28 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </p>
         </div>
       </div>
+
+      {/* Forgot Password Dialog */}
+      <ForgotPasswordDialog
+        isOpen={showResetDialog}
+        onClose={() => setShowResetDialog(false)}
+        onSuccess={handleResetSuccess}
+        onError={handleResetError}
+      />
+
+      {/* Reset Success Dialog */}
+      <ResetSuccessDialog
+        isOpen={showSuccessDialog}
+        onClose={() => setShowSuccessDialog(false)}
+        email={resetEmail}
+      />
+
+      {/* Reset Error Dialog */}
+      <ResetErrorDialog
+        isOpen={showErrorDialog}
+        onClose={() => setShowErrorDialog(false)}
+        message={resetErrorMessage}
+      />
     </div>
   );
 }

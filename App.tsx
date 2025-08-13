@@ -6,6 +6,7 @@ import { HistoryPage } from './components/HistoryPage';
 import { SearchBar } from './components/SearchBar';
 import { LoginPage } from './components/LoginPage';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
+import { SuccessDialog } from './components/SuccessDialog';
 import { Button } from './components/ui/button';
 import { DarkModeProvider, useDarkMode } from './components/DarkModeContext';
 import { authService } from './services/auth';
@@ -16,6 +17,8 @@ function AppContent() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [successMessage, setSuccessMessage] = useState({ title: '', message: '' });
   const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   // Check for existing authentication on app load
@@ -86,6 +89,19 @@ function AppContent() {
 
   const handleChangePassword = () => {
     setShowChangePasswordDialog(true);
+  };
+
+  const showSuccess = (title: string, message: string) => {
+    setSuccessMessage({ title, message });
+    setShowSuccessDialog(true);
+  };
+
+  const handlePasswordChangeSuccess = () => {
+    setShowChangePasswordDialog(false);
+    showSuccess(
+      'Password Changed Successfully!',
+      'Your password has been updated securely. You can now use your new password to log in.'
+    );
   };
 
   // Show login page if not authenticated
@@ -239,7 +255,16 @@ function AppContent() {
       <ChangePasswordDialog
         isOpen={showChangePasswordDialog}
         onClose={() => setShowChangePasswordDialog(false)}
+        onSuccess={handlePasswordChangeSuccess}
         userEmail={user?.email || ''}
+      />
+
+      {/* Success Dialog */}
+      <SuccessDialog
+        isOpen={showSuccessDialog}
+        onClose={() => setShowSuccessDialog(false)}
+        title={successMessage.title}
+        message={successMessage.message}
       />
     </div>
   );
