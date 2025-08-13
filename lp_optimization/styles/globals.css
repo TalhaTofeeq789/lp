@@ -1,0 +1,171 @@
+/* Tailwind imports */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Root variables for light mode - VIBRANT DARKER VERSION */
+:root {
+  --font-size: 14px;
+  
+  /* Main colors - much more vibrant and darker */
+  --background: 0 0% 93%; /* darker background #ededed */
+  --foreground: 220 25% 5%; /* much deeper text */
+  --card: 0 0% 94%; /* darker card #f0f0f0 */
+  --card-foreground: 220 25% 5%;
+  --popover: 0 0% 94%;
+  --popover-foreground: 220 25% 5%;
+  --primary: 240 100% 28%; /* more vibrant blue #0d0d8f */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 265 50% 60%; /* more saturated purple #9b7de6 */
+  --secondary-foreground: 240 100% 28%;
+  --muted: 240 15% 75%; /* more colorful muted */
+  --muted-foreground: 240 20% 30%;
+  --accent: 220 70% 55%; /* much more vibrant accent #4db8e6 */
+  --accent-foreground: 240 100% 28%;
+  --destructive: 348 95% 32%; /* deeper, more vibrant red */
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 25% 70% / 0.25; /* darker, more visible border */
+  --input: transparent;
+  --input-background: 220 18% 85%; /* darker input background */
+  --switch-background: 220 25% 60%;
+  --ring: 220 25% 50%;
+  
+  /* Chart colors - more vibrant darker versions */
+  --chart-1: 41 90% 45%; /* deeper orange */
+  --chart-2: 185 40% 45%; /* deeper teal */
+  --chart-3: 227 30% 25%; /* deeper blue-gray */
+  --chart-4: 84 70% 68%; /* more vibrant green */
+  --chart-5: 70 70% 62%; /* more vibrant yellow-green */
+  
+  /* Sidebar colors - much darker and more vibrant */
+  --sidebar: 0 0% 90%; /* darker sidebar background */
+  --sidebar-foreground: 220 25% 8%;
+  --sidebar-primary: 240 100% 4%;
+  --sidebar-primary-foreground: 0 0% 95%;
+  --sidebar-accent: 0 0% 87%; /* darker sidebar accent */
+  --sidebar-accent-foreground: 220 25% 12%;
+  --sidebar-border: 0 0% 82%; /* much darker sidebar border */
+  --sidebar-ring: 0 0% 55%;
+  
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --radius: 0.625rem;
+}
+
+/* Dark mode variables */
+.dark {
+  --background: 220 9% 15%; /* oklch(0.145 0 0) converted */
+  --foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --card: 220 9% 15%; /* oklch(0.145 0 0) converted */
+  --card-foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --popover: 220 9% 15%; /* oklch(0.145 0 0) converted */
+  --popover-foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --primary: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --primary-foreground: 220 9% 20%; /* oklch(0.205 0 0) converted */
+  --secondary: 0 0% 27%; /* oklch(0.269 0 0) converted */
+  --secondary-foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --muted: 0 0% 27%; /* oklch(0.269 0 0) converted */
+  --muted-foreground: 0 0% 71%; /* oklch(0.708 0 0) converted */
+  --accent: 0 0% 27%; /* oklch(0.269 0 0) converted */
+  --accent-foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --destructive: 26 84% 40%; /* oklch(0.396 0.141 25.723) converted */
+  --destructive-foreground: 25 95% 64%; /* oklch(0.637 0.237 25.331) converted */
+  --border: 0 0% 27%; /* oklch(0.269 0 0) converted */
+  --input: 0 0% 27%; /* oklch(0.269 0 0) converted */
+  --ring: 0 0% 44%; /* oklch(0.439 0 0) converted */
+  
+  /* Dark mode chart colors */
+  --chart-1: 264 89% 49%; /* oklch(0.488 0.243 264.376) converted */
+  --chart-2: 162 60% 70%; /* oklch(0.696 0.17 162.48) converted */
+  --chart-3: 70 65% 77%; /* oklch(0.769 0.188 70.08) converted */
+  --chart-4: 304 89% 63%; /* oklch(0.627 0.265 303.9) converted */
+  --chart-5: 16 89% 65%; /* oklch(0.645 0.246 16.439) converted */
+  
+  /* Dark mode sidebar colors */
+  --sidebar: 220 9% 20%; /* oklch(0.205 0 0) converted */
+  --sidebar-foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --sidebar-primary: 264 89% 49%; /* oklch(0.488 0.243 264.376) converted */
+  --sidebar-primary-foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --sidebar-accent: 0 0% 27%; /* oklch(0.269 0 0) converted */
+  --sidebar-accent-foreground: 0 0% 98%; /* oklch(0.985 0 0) converted */
+  --sidebar-border: 0 0% 27%; /* oklch(0.269 0 0) converted */
+  --sidebar-ring: 0 0% 44%; /* oklch(0.439 0 0) converted */
+}
+
+/* Base styles */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Hide scrollbars utility class */
+  .scrollbar-hide {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* WebKit */
+  }
+}
+
+/* Base typography */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: 1.5rem; /* 24px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+    
+    h2 {
+      font-size: 1.25rem; /* 20px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+    
+    h3 {
+      font-size: 1.125rem; /* 18px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+    
+    h4 {
+      font-size: 1rem; /* 16px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+    
+    p {
+      font-size: 1rem; /* 16px */
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+    
+    label {
+      font-size: 1rem; /* 16px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+    
+    button {
+      font-size: 1rem; /* 16px */
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+    
+    input {
+      font-size: 1rem; /* 16px */
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}
