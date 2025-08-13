@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Brain, Save, Eye, Sparkles, Zap, Code } from 'lucide-react';
+import { Brain, Save, Eye, Sparkles, Zap, Code, Copy } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrapedDataSection } from './ScrapedDataSection';
+import { FullScreenPreviewDialog } from './FullScreenPreviewDialog';
 
 interface ScrapedElement {
   id: string;
@@ -21,14 +22,28 @@ interface ScrapedData {
   html?: string; // Add HTML field for complete page source
 }
 
+interface ApiSuggestion {
+  ai_error: string | null;
+  ai_suggestions: string[];
+  original: string;
+}
+
 interface ApiResponse {
+  ai_enhanced: boolean;
   data: Array<{
-    call_to_action: string[];
-    description_credibility: string[];
-    headline: string[];
+    ai_enhanced: boolean;
+    call_to_action: ApiSuggestion[];
+    description_credibility: ApiSuggestion[];
+    headline: ApiSuggestion[];
     html: string;
-    subheadline: string[];
+    subheadline: ApiSuggestion[];
   }>;
+  processing_info: {
+    ai_model: string;
+    content_types_enhanced: string[];
+    suggestions_per_item: number;
+    total_urls: number;
+  };
   status: string;
 }
 
@@ -38,6 +53,9 @@ export function MainPage() {
   const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
   const [selectedElementsCount, setSelectedElementsCount] = useState(0);
   const [showHtml, setShowHtml] = useState(false);
+  const [showFullScreenPreview, setShowFullScreenPreview] = useState(false);
+  const [modifiedHtml, setModifiedHtml] = useState('');
+  const [savedChanges, setSavedChanges] = useState<Map<string, { original: string, modified: string }>>(new Map());
 
   // Helper function to normalize URL
   const normalizeUrl = (inputUrl: string) => {
@@ -51,36 +69,6 @@ export function MainPage() {
     return normalizedUrl;
   };
 
-  // Helper function to generate AI suggestions for text
-  const generateSuggestions = (originalText: string, type: string): string[] => {
-    const suggestions: string[] = [];
-    
-    if (type.toLowerCase().includes('headline')) {
-      suggestions.push(
-        `${originalText} - Enhanced`,
-        `Discover ${originalText}`,
-        `Premium ${originalText}`,
-        `Ultimate ${originalText}`
-      );
-    } else if (type.toLowerCase().includes('cta') || type.toLowerCase().includes('call_to_action')) {
-      suggestions.push(
-        `${originalText} Now`,
-        `Get ${originalText}`,
-        `Start ${originalText}`,
-        `Try ${originalText} Free`
-      );
-    } else {
-      suggestions.push(
-        `${originalText} - Optimized`,
-        `Enhanced: ${originalText}`,
-        `Premium ${originalText}`,
-        `${originalText} Plus`
-      );
-    }
-    
-    return suggestions.slice(0, 4);
-  };
-
   const handleScrapeData = async () => {
     if (!url.trim()) return;
     
@@ -89,7 +77,8 @@ export function MainPage() {
     const normalizedUrl = normalizeUrl(url);
     
     try {
-      const response = await fetch('https://web-scraper-backend-kappa.vercel.app/scrape-batch', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://web-scraper-backend-kappa.vercel.app';
+      const response = await fetch(`${apiUrl}/scrape`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -111,56 +100,64 @@ export function MainPage() {
         let elementId = 1;
 
         // Process headlines
-        scraped.headline.forEach((headline, index) => {
-          elements.push({
-            id: `headline-${elementId++}`,
-            type: 'Headline',
-            label: `Headline ${index + 1}`,
-            originalText: headline,
-            importance: index === 0 ? 'high' : 'medium',
-            suggestions: generateSuggestions(headline, 'headline')
-          });
+        scraped.headline.forEach((item, index) => {
+          if (item.ai_error === null && item.ai_suggestions.length > 0) {
+            elements.push({
+              id: `headline-${elementId++}`,
+              type: 'Headline',
+              label: `Headline ${index + 1}`,
+              originalText: item.original,
+              importance: index === 0 ? 'high' : 'medium',
+              suggestions: item.ai_suggestions
+            });
+          }
         });
 
         // Process subheadlines
-        scraped.subheadline.forEach((subheadline, index) => {
-          elements.push({
-            id: `subheadline-${elementId++}`,
-            type: 'Subheadline',
-            label: `Subheadline ${index + 1}`,
-            originalText: subheadline,
-            importance: 'medium',
-            suggestions: generateSuggestions(subheadline, 'subheadline')
-          });
+        scraped.subheadline.forEach((item, index) => {
+          if (item.ai_error === null && item.ai_suggestions.length > 0) {
+            elements.push({
+              id: `subheadline-${elementId++}`,
+              type: 'Subheadline',
+              label: `Subheadline ${index + 1}`,
+              originalText: item.original,
+              importance: 'medium',
+              suggestions: item.ai_suggestions
+            });
+          }
         });
 
         // Process call to actions
-        scraped.call_to_action.forEach((cta, index) => {
-          elements.push({
-            id: `cta-${elementId++}`,
-            type: 'Call to Action',
-            label: `CTA ${index + 1}`,
-            originalText: cta,
-            importance: index < 3 ? 'high' : 'medium',
-            suggestions: generateSuggestions(cta, 'call_to_action')
-          });
+        scraped.call_to_action.forEach((item, index) => {
+          if (item.ai_error === null && item.ai_suggestions.length > 0) {
+            elements.push({
+              id: `cta-${elementId++}`,
+              type: 'Call to Action',
+              label: `CTA ${index + 1}`,
+              originalText: item.original,
+              importance: index < 3 ? 'high' : 'medium',
+              suggestions: item.ai_suggestions
+            });
+          }
         });
 
         // Process descriptions/credibility
-        scraped.description_credibility.forEach((desc, index) => {
-          elements.push({
-            id: `description-${elementId++}`,
-            type: 'Description',
-            label: `Description ${index + 1}`,
-            originalText: desc,
-            importance: 'low',
-            suggestions: generateSuggestions(desc, 'description')
-          });
+        scraped.description_credibility.forEach((item, index) => {
+          if (item.ai_error === null && item.ai_suggestions.length > 0) {
+            elements.push({
+              id: `description-${elementId++}`,
+              type: 'Description',
+              label: `Description ${index + 1}`,
+              originalText: item.original,
+              importance: 'low',
+              suggestions: item.ai_suggestions
+            });
+          }
         });
 
         setScrapedData({
           url: normalizedUrl,
-          title: scraped.headline[0] || "Scraped Landing Page",
+          title: scraped.headline[0]?.original || "Scraped Landing Page",
           totalElements: elements.length,
           elements: elements,
           html: scraped.html
@@ -183,7 +180,54 @@ export function MainPage() {
   };
 
   const handlePreview = () => {
-    console.log('Opening preview...');
+    if (!scrapedData) return;
+    
+    // Update the modified HTML with all saved changes
+    const updatedHtml = updateModifiedHtml();
+    setModifiedHtml(updatedHtml);
+    
+    // Show full-screen preview dialog
+    setShowFullScreenPreview(true);
+  };
+
+  const handleElementSelectionChange = (elementSelections: Map<string, string>) => {
+    setSelectedElementsCount(elementSelections.size);
+  };
+
+  const handleElementSave = (elementId: string, originalText: string, newText: string) => {
+    // Add to saved changes
+    const newSavedChanges = new Map(savedChanges);
+    newSavedChanges.set(elementId, { original: originalText, modified: newText });
+    setSavedChanges(newSavedChanges);
+
+    // Update modified HTML immediately
+    if (scrapedData?.html) {
+      let updatedHtml = modifiedHtml || scrapedData.html;
+      
+      // Apply this specific change
+      updatedHtml = updatedHtml.replace(
+        new RegExp(originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+        newText
+      );
+      
+      setModifiedHtml(updatedHtml);
+    }
+  };
+
+  const updateModifiedHtml = () => {
+    if (!scrapedData?.html) return '';
+    
+    let newHtml = scrapedData.html;
+    
+    // Apply all saved changes
+    savedChanges.forEach((change) => {
+      newHtml = newHtml.replace(
+        new RegExp(change.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+        change.modified
+      );
+    });
+    
+    return newHtml;
   };
 
   return (
@@ -270,6 +314,8 @@ export function MainPage() {
           <ScrapedDataSection 
             data={scrapedData} 
             onSelectionChange={setSelectedElementsCount}
+            onElementSelectionChange={handleElementSelectionChange}
+            onElementSave={handleElementSave}
           />
         )}
 
@@ -303,7 +349,16 @@ export function MainPage() {
           </div>
         )}
 
-        {/* HTML Source Code Display */}
+        {/* Full-Screen Preview Dialog */}
+        <FullScreenPreviewDialog
+          isOpen={showFullScreenPreview}
+          onClose={() => setShowFullScreenPreview(false)}
+          originalHtml={scrapedData?.html || ''}
+          modifiedHtml={modifiedHtml || scrapedData?.html || ''}
+          baseUrl={scrapedData?.url}
+        />
+
+        {/* HTML Source Code Display - Original and Modified */}
         {scrapedData && scrapedData.html && (
           <div className="bg-card rounded-2xl border border-border shadow-lg">
             <div className="p-6 border-b border-border">
@@ -313,8 +368,13 @@ export function MainPage() {
                     <Code className="w-5 h-5 text-chart-3" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Complete HTML Source</h3>
-                    <p className="text-sm text-muted-foreground">Original HTML code from the scraped page</p>
+                    <h3 className="text-lg font-semibold text-foreground">HTML Source Comparison</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {savedChanges.size > 0 
+                        ? `Compare original HTML with your ${savedChanges.size} optimization${savedChanges.size > 1 ? 's' : ''}` 
+                        : 'Original HTML code from the scraped page'
+                      }
+                    </p>
                   </div>
                 </div>
                 <Button
@@ -330,27 +390,63 @@ export function MainPage() {
             
             {showHtml && (
               <div className="p-6">
-                <div className="bg-muted rounded-lg border border-border">
-                  <div className="p-4 border-b border-border bg-muted-foreground/5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Original HTML */}
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">HTML Source Code</span>
+                      <h4 className="font-medium text-foreground">Original HTML</h4>
                       <Button
                         onClick={() => {
                           navigator.clipboard.writeText(scrapedData.html || '');
-                          // You could add a toast notification here
                         }}
                         variant="ghost"
                         size="sm"
                         className="text-muted-foreground hover:text-foreground"
                       >
-                        Copy Code
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copy
                       </Button>
                     </div>
+                    <div className="bg-muted rounded-lg border border-border">
+                      <div className="p-4 max-h-96 overflow-y-auto">
+                        <pre className="text-sm text-foreground font-mono whitespace-pre-wrap break-words">
+                          {scrapedData.html}
+                        </pre>
+                      </div>
+                    </div>
                   </div>
-                  <div className="p-4 max-h-96 overflow-y-auto">
-                    <pre className="text-sm text-foreground font-mono whitespace-pre-wrap break-words">
-                      {scrapedData.html}
-                    </pre>
+
+                  {/* Modified HTML */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-foreground">
+                        {savedChanges.size > 0 ? 'Optimized HTML' : 'Original HTML'}
+                      </h4>
+                      <Button
+                        onClick={() => {
+                          const htmlToShow = modifiedHtml || scrapedData.html || '';
+                          navigator.clipboard.writeText(htmlToShow);
+                        }}
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <Copy className="w-3 h-3 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                    <div className="bg-muted rounded-lg border border-border">
+                      <div className="p-4 max-h-96 overflow-y-auto">
+                        <pre className="text-sm text-foreground font-mono whitespace-pre-wrap break-words">
+                          {modifiedHtml || scrapedData.html}
+                        </pre>
+                      </div>
+                    </div>
+                    {savedChanges.size > 0 && (
+                      <div className="text-xs text-chart-1 bg-chart-1/10 px-3 py-2 rounded-lg">
+                        ✨ This HTML includes {savedChanges.size} optimization{savedChanges.size > 1 ? 's' : ''}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { DropdownSection } from './DropdownSection';
 import { Badge } from './ui/badge';
 import { Target, Search } from 'lucide-react';
@@ -23,11 +23,14 @@ interface ScrapedData {
 interface ScrapedDataSectionProps {
   data: ScrapedData;
   onSelectionChange: (count: number) => void;
+  onElementSelectionChange?: (elementSelections: Map<string, string>) => void;
+  onElementSave?: (elementId: string, originalText: string, newText: string) => void;
 }
 
-export function ScrapedDataSection({ data, onSelectionChange }: ScrapedDataSectionProps) {
+export function ScrapedDataSection({ data, onSelectionChange, onElementSelectionChange, onElementSave }: ScrapedDataSectionProps) {
   const [selectedElements, setSelectedElements] = useState<Map<string, string>>(new Map());
   const [searchQuery, setSearchQuery] = useState('');
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   const handleElementSelection = (elementId: string, selectedText: string | null) => {
     const newSelected = new Map(selectedElements);
@@ -38,6 +41,15 @@ export function ScrapedDataSection({ data, onSelectionChange }: ScrapedDataSecti
     }
     setSelectedElements(newSelected);
     onSelectionChange(newSelected.size);
+    
+    // Call the new callback if provided
+    if (onElementSelectionChange) {
+      onElementSelectionChange(newSelected);
+    }
+  };
+
+  const handleDropdownToggle = (elementId: string, isOpen: boolean) => {
+    setOpenDropdownId(isOpen ? elementId : null);
   };
 
   // Helper function to safely format URL display
@@ -116,12 +128,14 @@ export function ScrapedDataSection({ data, onSelectionChange }: ScrapedDataSecti
               </p>
             </div>
           ) : (
-            filteredElements.map((element, index) => (
+            filteredElements.map((element) => (
               <DropdownSection
                 key={element.id}
                 element={element}
                 onSelectionChange={handleElementSelection}
-                isDefaultOpen={index === 0}
+                onElementSave={onElementSave}
+                isOpen={openDropdownId === element.id}
+                onToggle={(isOpen) => handleDropdownToggle(element.id, isOpen)}
               />
             ))
           )}
