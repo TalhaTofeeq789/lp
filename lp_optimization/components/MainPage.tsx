@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ScrapedDataSection } from './ScrapedDataSection';
 import { FullScreenPreviewDialog } from './FullScreenPreviewDialog';
+import { LivePreview } from './LivePreview';
 
 interface ScrapedElement {
   id: string;
@@ -47,7 +48,15 @@ interface ApiResponse {
   status: string;
 }
 
-export function MainPage() {
+export function MainPage({ 
+  isLivePreviewOpen,
+  onToggleSidebar,
+  onAnalyze 
+}: {
+  isLivePreviewOpen?: boolean;
+  onToggleSidebar?: () => void;
+  onAnalyze?: () => void;
+}) {
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
@@ -56,6 +65,8 @@ export function MainPage() {
   const [showFullScreenPreview, setShowFullScreenPreview] = useState(false);
   const [modifiedHtml, setModifiedHtml] = useState('');
   const [savedChanges, setSavedChanges] = useState<Map<string, { original: string, modified: string }>>(new Map());
+  const [livePreviewHtml, setLivePreviewHtml] = useState('');
+  const [currentBaseUrl, setCurrentBaseUrl] = useState('');
 
   // Helper function to normalize URL
   const normalizeUrl = (inputUrl: string) => {
@@ -162,6 +173,20 @@ export function MainPage() {
           elements: elements,
           html: scraped.html
         });
+
+        // Set up live preview
+        setLivePreviewHtml(scraped.html || '');
+        setCurrentBaseUrl(normalizedUrl);
+        
+        // Trigger sidebar toggle to enter live preview mode
+        if (onToggleSidebar) {
+          onToggleSidebar();
+        }
+
+        // Notify parent that analyze was clicked
+        if (onAnalyze) {
+          onAnalyze();
+        }
       } else {
         throw new Error('No data received from API');
       }
@@ -200,6 +225,9 @@ export function MainPage() {
     newSavedChanges.set(elementId, { original: originalText, modified: newText });
     setSavedChanges(newSavedChanges);
 
+    // Update live preview HTML immediately
+    updateLivePreview(newSavedChanges);
+
     // Update modified HTML immediately
     if (scrapedData?.html) {
       let updatedHtml = modifiedHtml || scrapedData.html;
@@ -212,6 +240,22 @@ export function MainPage() {
       
       setModifiedHtml(updatedHtml);
     }
+  };
+
+  const updateLivePreview = (changesMap: Map<string, { original: string, modified: string }>) => {
+    if (!scrapedData?.html) return;
+    
+    let updatedHtml = scrapedData.html;
+    
+    // Apply all changes to the HTML
+    changesMap.forEach((change) => {
+      updatedHtml = updatedHtml.replace(
+        new RegExp(change.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+        change.modified
+      );
+    });
+    
+    setLivePreviewHtml(updatedHtml);
   };
 
   const updateModifiedHtml = () => {
@@ -231,229 +275,246 @@ export function MainPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-blue-50/30 to-emerald-50/30 dark:from-background dark:via-background dark:to-background">
-      <div className="max-w-6xl mx-auto p-6 lg:p-8 space-y-8">
-        {/* Enhanced Header */}
-        <div className="text-center space-y-6">
-          <div className="inline-flex items-center gap-2 bg-chart-1/10 px-4 py-2 rounded-full border border-chart-1/20">
-            <Sparkles className="w-4 h-4 text-chart-1" />
-            <span className="text-sm font-medium text-chart-1">AI-Powered Optimization</span>
-          </div>
-          <div>
-            <h1 className="text-3xl lg:text-4xl font-semibold text-foreground mb-4">
-              Landing Page Optimization Tool
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Analyze any landing page and get intelligent AI suggestions to improve conversion rates, 
-              user engagement, and overall performance across all content elements.
-            </p>
-          </div>
-        </div>
-
-        {/* Enhanced URL Input Section */}
-        <div className="bg-card rounded-2xl border border-border p-8 shadow-lg backdrop-blur-sm">
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-foreground mb-2">Start Your Optimization</h2>
-              <p className="text-muted-foreground">Enter your landing page URL to begin AI-powered analysis</p>
+    <div className={`${isLivePreviewOpen ? 'h-screen flex' : 'min-h-screen'}`}>
+      {/* Main Content Area - Scrollable */}
+      <div className={`${isLivePreviewOpen ? 'w-[40%] flex-shrink-0 overflow-y-auto' : 'w-full'} bg-gradient-to-br from-background via-blue-50/30 to-emerald-50/30 dark:from-background dark:via-background dark:to-background`}>
+        <div className="max-w-6xl mx-auto p-6 lg:p-8 space-y-8">
+          {/* Enhanced Header */}
+          <div className="text-center space-y-6">
+            <div className="inline-flex items-center gap-2 bg-chart-1/10 px-4 py-2 rounded-full border border-chart-1/20">
+              <Sparkles className="w-4 h-4 text-chart-1" />
+              <span className="text-sm font-medium text-chart-1">AI-Powered Optimization</span>
             </div>
-            
-            <div className="max-w-3xl mx-auto">
-              <label htmlFor="url" className="block text-sm font-medium text-foreground mb-3">
-                Landing Page URL
-              </label>
-              <div className="flex gap-4">
-                <div className="flex-1 relative">
-                  <Input
-                    id="url"
-                    type="url"
-                    placeholder="https://your-landing-page.com"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    className="h-12 px-4 text-base border-border focus:border-chart-1 focus:ring-chart-1/20 bg-input-background text-foreground"
-                    disabled={isLoading}
-                  />
-                </div>
-                <Button
-                  onClick={handleScrapeData}
-                  disabled={!url.trim() || isLoading}
-                  className="h-12 bg-gradient-to-r from-chart-1 to-chart-2 hover:from-chart-1/90 hover:to-chart-2/90 text-white px-8 shadow-lg shadow-chart-1/25 min-w-[160px]"
-                >
-                  {isLoading ? (
-                    <div className="flex items-center gap-3">
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Analyzing...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3">
-                      <Brain className="w-5 h-5" />
-                      <span>Analyze Page</span>
-                    </div>
-                  )}
-                </Button>
-              </div>
+            <div>
+              <h1 className="text-3xl lg:text-4xl font-semibold text-foreground mb-4">
+                Landing Page Optimization Tool
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+                Analyze any landing page and get intelligent AI suggestions to improve conversion rates, 
+                user engagement, and overall performance across all content elements.
+              </p>
             </div>
-
-            {scrapedData && (
-              <div className="flex items-center justify-center gap-6 pt-4 border-t border-border">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Zap className="w-4 h-4 text-chart-2" />
-                  <span>{scrapedData.totalElements} elements detected</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span className="w-2 h-2 bg-chart-1 rounded-full"></span>
-                  <span>{selectedElementsCount} optimizations selected</span>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
 
-        {/* Enhanced Scraped Data Display */}
-        {scrapedData && (
-          <ScrapedDataSection 
-            data={scrapedData} 
-            onSelectionChange={setSelectedElementsCount}
-            onElementSelectionChange={handleElementSelectionChange}
-            onElementSave={handleElementSave}
-          />
-        )}
-
-        {/* Enhanced Action Buttons */}
-        {scrapedData && (
-          <div className="bg-card rounded-2xl border border-border p-8 shadow-lg">
-            <div className="text-center space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">Ready to optimize?</h3>
-                <p className="text-muted-foreground">Save your optimizations or preview the changes</p>
+          {/* Enhanced URL Input Section */}
+          <div className="bg-card rounded-2xl border border-border p-8 shadow-lg backdrop-blur-sm">
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-foreground mb-2">Start Your Optimization</h2>
+                <p className="text-muted-foreground">Enter your landing page URL to begin AI-powered analysis</p>
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
-                <Button
-                  onClick={handleSave}
-                  variant="outline"
-                  className="flex-1 sm:flex-none h-12 border-border hover:bg-accent hover:border-accent px-8 text-foreground"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Optimizations
-                </Button>
-                <Button
-                  onClick={handlePreview}
-                  className="flex-1 sm:flex-none h-12 bg-gradient-to-r from-chart-2 to-chart-3 hover:from-chart-2/90 hover:to-chart-3/90 text-white px-8 shadow-lg shadow-chart-2/25"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Preview Changes
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Full-Screen Preview Dialog */}
-        <FullScreenPreviewDialog
-          isOpen={showFullScreenPreview}
-          onClose={() => setShowFullScreenPreview(false)}
-          originalHtml={scrapedData?.html || ''}
-          modifiedHtml={modifiedHtml || scrapedData?.html || ''}
-          baseUrl={scrapedData?.url}
-        />
-
-        {/* HTML Source Code Display - Original and Modified */}
-        {scrapedData && scrapedData.html && (
-          <div className="bg-card rounded-2xl border border-border shadow-lg">
-            <div className="p-6 border-b border-border">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-chart-3/10 rounded-lg">
-                    <Code className="w-5 h-5 text-chart-3" />
+              <div className="max-w-3xl mx-auto">
+                <label htmlFor="url" className="block text-sm font-medium text-foreground mb-3">
+                  Landing Page URL
+                </label>
+                <div className="flex gap-4">
+                  <div className="flex-1 relative">
+                    <Input
+                      id="url"
+                      type="url"
+                      placeholder="https://your-landing-page.com"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      className="h-12 px-4 text-base border-border focus:border-chart-1 focus:ring-chart-1/20 bg-input-background text-foreground"
+                      disabled={isLoading}
+                    />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">HTML Source Comparison</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {savedChanges.size > 0 
-                        ? `Compare original HTML with your ${savedChanges.size} optimization${savedChanges.size > 1 ? 's' : ''}` 
-                        : 'Original HTML code from the scraped page'
-                      }
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  onClick={() => setShowHtml(!showHtml)}
-                  variant="outline"
-                  size="sm"
-                  className="border-border hover:bg-accent"
-                >
-                  {showHtml ? 'Hide' : 'Show'} HTML
-                </Button>
-              </div>
-            </div>
-            
-            {showHtml && (
-              <div className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Original HTML */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-foreground">Original HTML</h4>
-                      <Button
-                        onClick={() => {
-                          navigator.clipboard.writeText(scrapedData.html || '');
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <Copy className="w-3 h-3 mr-1" />
-                        Copy
-                      </Button>
-                    </div>
-                    <div className="bg-muted rounded-lg border border-border">
-                      <div className="p-4 max-h-96 overflow-y-auto">
-                        <pre className="text-sm text-foreground font-mono whitespace-pre-wrap break-words">
-                          {scrapedData.html}
-                        </pre>
+                  <Button
+                    onClick={handleScrapeData}
+                    disabled={!url.trim() || isLoading}
+                    className="h-12 bg-gradient-to-r from-chart-1 to-chart-2 hover:from-chart-1/90 hover:to-chart-2/90 text-white px-8 shadow-lg shadow-chart-1/25 min-w-[160px]"
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Analyzing...</span>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Modified HTML */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-foreground">
-                        {savedChanges.size > 0 ? 'Optimized HTML' : 'Original HTML'}
-                      </h4>
-                      <Button
-                        onClick={() => {
-                          const htmlToShow = modifiedHtml || scrapedData.html || '';
-                          navigator.clipboard.writeText(htmlToShow);
-                        }}
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <Copy className="w-3 h-3 mr-1" />
-                        Copy
-                      </Button>
-                    </div>
-                    <div className="bg-muted rounded-lg border border-border">
-                      <div className="p-4 max-h-96 overflow-y-auto">
-                        <pre className="text-sm text-foreground font-mono whitespace-pre-wrap break-words">
-                          {modifiedHtml || scrapedData.html}
-                        </pre>
-                      </div>
-                    </div>
-                    {savedChanges.size > 0 && (
-                      <div className="text-xs text-chart-1 bg-chart-1/10 px-3 py-2 rounded-lg">
-                        ✨ This HTML includes {savedChanges.size} optimization{savedChanges.size > 1 ? 's' : ''}
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <Brain className="w-5 h-5" />
+                        <span>Analyze Page</span>
                       </div>
                     )}
-                  </div>
+                  </Button>
                 </div>
               </div>
-            )}
+
+              {scrapedData && (
+                <div className="flex items-center justify-center gap-6 pt-4 border-t border-border">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Zap className="w-4 h-4 text-chart-2" />
+                    <span>{scrapedData.totalElements} elements detected</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="w-2 h-2 bg-chart-1 rounded-full"></span>
+                    <span>{selectedElementsCount} optimizations selected</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        )}
+
+          {/* Enhanced Scraped Data Display */}
+          {scrapedData && (
+            <ScrapedDataSection 
+              data={scrapedData} 
+              onSelectionChange={setSelectedElementsCount}
+              onElementSelectionChange={handleElementSelectionChange}
+              onElementSave={handleElementSave}
+            />
+          )}
+
+          {/* Enhanced Action Buttons */}
+          {scrapedData && (
+            <div className="bg-card rounded-2xl border border-border p-8 shadow-lg">
+              <div className="text-center space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Ready to optimize?</h3>
+                  <p className="text-muted-foreground">Save your optimizations or preview the changes</p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+                  <Button
+                    onClick={handleSave}
+                    variant="outline"
+                    className="flex-1 sm:flex-none h-12 border-border hover:bg-accent hover:border-accent px-8 text-foreground"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Optimizations
+                  </Button>
+                  <Button
+                    onClick={handlePreview}
+                    className="flex-1 sm:flex-none h-12 bg-gradient-to-r from-chart-2 to-chart-3 hover:from-chart-2/90 hover:to-chart-3/90 text-white px-8 shadow-lg shadow-chart-2/25"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview Changes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* HTML Source Code Display when live preview is not active */}
+          {scrapedData && scrapedData.html && !isLivePreviewOpen && (
+            <div className="bg-card rounded-2xl border border-border shadow-lg">
+              <div className="p-6 border-b border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-chart-3/10 rounded-lg">
+                      <Code className="w-5 h-5 text-chart-3" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-foreground">HTML Source Comparison</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {savedChanges.size > 0 
+                          ? `Compare original HTML with your ${savedChanges.size} optimization${savedChanges.size > 1 ? 's' : ''}` 
+                          : 'Original HTML code from the scraped page'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => setShowHtml(!showHtml)}
+                    variant="outline"
+                    size="sm"
+                    className="border-border hover:bg-accent"
+                  >
+                    {showHtml ? 'Hide' : 'Show'} HTML
+                  </Button>
+                </div>
+              </div>
+              
+              {showHtml && (
+                <div className="p-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Original HTML */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-foreground">Original HTML</h4>
+                        <Button
+                          onClick={() => {
+                            navigator.clipboard.writeText(scrapedData.html || '');
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy
+                        </Button>
+                      </div>
+                      <div className="bg-muted rounded-lg border border-border">
+                        <div className="p-4 max-h-96 overflow-y-auto">
+                          <pre className="text-sm text-foreground font-mono whitespace-pre-wrap break-words">
+                            {scrapedData.html}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Modified HTML */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-foreground">
+                          {savedChanges.size > 0 ? 'Optimized HTML' : 'Original HTML'}
+                        </h4>
+                        <Button
+                          onClick={() => {
+                            const htmlToShow = modifiedHtml || scrapedData.html || '';
+                            navigator.clipboard.writeText(htmlToShow);
+                          }}
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy
+                        </Button>
+                      </div>
+                      <div className="bg-muted rounded-lg border border-border">
+                        <div className="p-4 max-h-96 overflow-y-auto">
+                          <pre className="text-sm text-foreground font-mono whitespace-pre-wrap break-words">
+                            {modifiedHtml || scrapedData.html}
+                          </pre>
+                        </div>
+                      </div>
+                      {savedChanges.size > 0 && (
+                        <div className="text-xs text-chart-1 bg-chart-1/10 px-3 py-2 rounded-lg">
+                          ✨ This HTML includes {savedChanges.size} optimization{savedChanges.size > 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Live Preview Panel */}
+      {isLivePreviewOpen && scrapedData && (
+        <div className="w-[60%] flex-shrink-0 bg-muted/30 border-l border-border">
+          <div className="h-screen p-4">
+            <LivePreview
+              url={currentBaseUrl || scrapedData.url}
+              htmlContent={livePreviewHtml || scrapedData.html || ''}
+              baseUrl={currentBaseUrl}
+              className="h-full"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Preview Dialog */}
+      <FullScreenPreviewDialog
+        isOpen={showFullScreenPreview}
+        onClose={() => setShowFullScreenPreview(false)}
+        originalHtml={scrapedData?.html || ''}
+        modifiedHtml={modifiedHtml || scrapedData?.html || ''}
+        baseUrl={scrapedData?.url}
+      />
     </div>
   );
 }
