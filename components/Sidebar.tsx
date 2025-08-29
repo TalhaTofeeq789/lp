@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Home, History, Sparkles, TrendingUp, Zap, Menu, User, Settings, KeyRound, LogOut } from 'lucide-react';
+import { X, Home, History, Sparkles, TrendingUp, Zap, Menu, User, Settings, KeyRound, LogOut, Globe } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { useDarkMode } from './DarkModeContext';
 import { Button } from './ui/button';
@@ -11,8 +11,8 @@ import {
 } from './ui/dropdown-menu';
 
 interface SidebarProps {
-  currentPage: 'main' | 'history';
-  onPageChange: (page: 'main' | 'history') => void;
+  currentPage: 'main' | 'history' | 'scraper';
+  onPageChange: (page: 'main' | 'history' | 'scraper') => void;
   onClose: () => void;
   onToggle: () => void;
   isOpen: boolean;
@@ -42,6 +42,12 @@ export function Sidebar({ currentPage, onPageChange, onClose, onToggle, isOpen, 
       icon: History,
       description: 'View past optimizations',
       badge: '4'
+    },
+    {
+      id: 'scraper' as const,
+      label: 'Complete Scraper',
+      icon: Globe,
+      description: 'Download complete websites',
     },
   ];
 

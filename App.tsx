@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Sun, Moon, HelpCircle } from 'lucide-react';
+import { Menu, Sun, Moon, HelpCircle, Monitor, MonitorX } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { MainPage } from './components/MainPage';
 import { HistoryPage } from './components/HistoryPage';
+import { CompleteScraper } from './components/CompleteScraper';
 import { SearchBar } from './components/SearchBar';
 import { LoginPage } from './components/LoginPage';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
@@ -13,8 +14,10 @@ import { authService } from './services/auth';
 
 function AppContent() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentPage, setCurrentPage] = useState<'main' | 'history'>('main');
+  const [currentPage, setCurrentPage] = useState<'main' | 'history' | 'scraper'>('main');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isLivePreviewOpen, setIsLivePreviewOpen] = useState(false);
+  const [hasAnalyzedUrl, setHasAnalyzedUrl] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -82,6 +85,19 @@ function AppContent() {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
+  const toggleLivePreview = () => {
+    setIsLivePreviewOpen(!isLivePreviewOpen);
+    // Auto-close sidebar when live preview is opened
+    if (!isLivePreviewOpen) {
+      setIsSidebarOpen(false);
+    }
+  };
+
+  const handleAnalyzeAction = () => {
+    setHasAnalyzedUrl(true);
+    setIsSidebarOpen(false); // Close sidebar when analyze is clicked
+  };
+
   const handleHelp = () => {
     console.log('Help clicked');
     // Implement help logic here
@@ -112,10 +128,18 @@ function AppContent() {
   // Show main dashboard if authenticated
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Mobile overlay */}
+      {/* Mobile overlay - always show on mobile */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/20 z-40 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
+      {/* Desktop overlay - only when live preview is open */}
+      {isSidebarOpen && isLivePreviewOpen && (
+        <div 
+          className="hidden lg:block fixed inset-0 bg-black/20 z-40"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -142,7 +166,7 @@ function AppContent() {
       {!isSidebarOpen && (
         <Button
           onClick={toggleSidebar}
-          className="fixed top-4 left-4 z-[60] bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+          className="fixed top-4 left-4 z-[60] bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg lg:top-4"
           size="sm"
         >
           <Menu className="w-4 h-4" />
@@ -150,11 +174,9 @@ function AppContent() {
       )}
 
       {/* Main Content */}
-      <div className={`
-        flex-1 flex flex-col min-w-0 relative
-        transition-all duration-300 ease-in-out
-        ${isSidebarOpen ? 'lg:ml-80' : 'ml-0'}
-      `}>
+      <div className={`flex-1 flex flex-col min-w-0 relative transition-all duration-300 ease-in-out ${
+        isSidebarOpen && !isLivePreviewOpen ? 'lg:ml-80' : ''
+      }`}>
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between p-4 border-b bg-card border-border">
           <button
@@ -165,6 +187,20 @@ function AppContent() {
           </button>
           <h1 className="text-lg font-medium text-foreground">Landing Page Tool</h1>
           <div className="flex items-center gap-2">
+            <Button
+              onClick={toggleLivePreview}
+              variant="ghost"
+              size="sm"
+              className={`text-foreground hover:bg-accent ${
+                isLivePreviewOpen ? 'bg-chart-1/20 text-chart-1' : ''
+              }`}
+            >
+              {isLivePreviewOpen ? (
+                <MonitorX className="w-4 h-4" />
+              ) : (
+                <Monitor className="w-4 h-4" />
+              )}
+            </Button>
             <Button
               onClick={toggleDarkMode}
               variant="ghost"
@@ -190,9 +226,7 @@ function AppContent() {
 
         {/* Sticky Top Bar for Desktop - positioned relative to content */}
         <div className="hidden lg:block sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
-          <div className={`flex items-center justify-between gap-4 p-4 transition-all duration-300 ${
-            !isSidebarOpen ? 'pl-16' : ''
-          }`}>
+          <div className="flex items-center justify-between gap-4 py-4 pr-4 pl-16">
             {/* Search Bar - Left side */}
             <div className="flex-1 max-w-md">
               <SearchBar
@@ -206,6 +240,21 @@ function AppContent() {
 
             {/* Action Buttons - Right side */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                onClick={toggleLivePreview}
+                variant={isLivePreviewOpen ? "default" : "outline"}
+                size="sm"
+                className={`border-border hover:bg-accent text-foreground ${
+                  isLivePreviewOpen ? 'bg-chart-1 hover:bg-chart-1/90 text-white' : ''
+                }`}
+                title={isLivePreviewOpen ? "Close Live Preview" : "Open Live Preview"}
+              >
+                {isLivePreviewOpen ? (
+                  <MonitorX className="w-4 h-4" />
+                ) : (
+                  <Monitor className="w-4 h-4" />
+                )}
+              </Button>
               <Button
                 onClick={toggleDarkMode}
                 variant="outline"
@@ -241,10 +290,18 @@ function AppContent() {
           />
         </div>
 
-        {/* Page Content - scrollable */}
-        <div className="flex-1 overflow-auto">
+        {/* Page Content */}
+        <div className={`flex-1 ${isLivePreviewOpen && currentPage === 'main' ? 'overflow-hidden' : 'overflow-auto'}`}>
           {currentPage === 'main' ? (
-            <MainPage />
+            <MainPage 
+              isLivePreviewOpen={isLivePreviewOpen}
+              onToggleSidebar={toggleSidebar}
+              onAnalyze={handleAnalyzeAction}
+            />
+          ) : currentPage === 'history' ? (
+            <HistoryPage />
+          ) : currentPage === 'scraper' ? (
+            <CompleteScraper />
           ) : (
             <HistoryPage />
           )}

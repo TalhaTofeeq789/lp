@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Check, Edit3, Copy, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check, Edit3, Plus, RefreshCw, Copy, Sparkles } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { Input } from './ui/input';
 
 interface ScrapedElement {
   id: string;
@@ -25,22 +26,21 @@ interface DropdownSectionProps {
 export function DropdownSection({ 
   element, 
   onSelectionChange,
-  // onElementSave,
+  onElementSave,
   isOpen: externalIsOpen,
   onToggle
 }: DropdownSectionProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [selectedText, setSelectedText] = useState<string | null>(null);
-  // const [suggestions, setSuggestions] = useState(() => 
-  //   element.suggestions.map(suggestion => 
-  //     suggestion.replace(/^["']|["']$/g, '') // Remove leading and trailing quotes
-  //   )
-  // );
-  // const [isGenerating, setIsGenerating] = useState(false);
+  const [suggestions, setSuggestions] = useState(() => 
+    element.suggestions.map(suggestion => 
+      suggestion.replace(/^["']|["']$/g, '') // Remove leading and trailing quotes
+    )
+  );
+  const [isGenerating, setIsGenerating] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  // const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  // const [editingText, setEditingText] = useState('');
-  // const [showSavedNotification, setShowSavedNotification] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
 
   // Use external state if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -55,32 +55,42 @@ export function DropdownSection({
     }
   };
 
-  // const handleGenerateMore = async () => {
-  //   setIsGenerating(true);
-  //   
-  //   // Simulate API call for generating more suggestions
-  //   setTimeout(() => {
-  //     const newSuggestions = [
-  //       "Enhanced version with improved clarity and impact",
-  //       "Optimized for better conversion and engagement",
-  //       "Modern approach with compelling user-focused language"
-  //     ];
-  //     
-  //     setSuggestions(prev => [...prev, ...newSuggestions]);
-  //     setIsGenerating(false);
-  //   }, 1500);
-  // };
+  const handleGenerateMore = async () => {
+    setIsGenerating(true);
+    
+    // Simulate API call for generating more suggestions
+    setTimeout(() => {
+      const newSuggestions = [
+        "Enhanced version with improved clarity and impact",
+        "Optimized for better conversion and engagement",
+        "Modern approach with compelling user-focused language"
+      ];
+      
+      setSuggestions(prev => [...prev, ...newSuggestions]);
+      setIsGenerating(false);
+    }, 1500);
+  };
 
-  // const handleSelectOption = (text: string) => {
-  //   const newSelectedText = selectedText === text ? null : text;
-  //   setSelectedText(newSelectedText);
-  //   onSelectionChange(element.id, newSelectedText);
-  // };
+  const handleSelectOption = (text: string) => {
+    const newSelectedText = selectedText === text ? null : text;
+    setSelectedText(newSelectedText);
+    onSelectionChange(element.id, newSelectedText);
+    
+    // Automatically save the change when an option is selected
+    if (newSelectedText && onElementSave) {
+      onElementSave(element.id, element.originalText, newSelectedText);
+    }
+  };
 
   const handleSelectOriginal = () => {
     const newSelectedText = selectedText === element.originalText ? null : element.originalText;
     setSelectedText(newSelectedText);
     onSelectionChange(element.id, newSelectedText);
+    
+    // Automatically save the change when original is selected
+    if (newSelectedText && onElementSave) {
+      onElementSave(element.id, element.originalText, newSelectedText);
+    }
   };
 
   const handleCopyText = (text: string, index?: number) => {
@@ -91,33 +101,23 @@ export function DropdownSection({
     }
   };
 
-  // const handleEditText = (index: number, text: string) => {
-  //   setEditingIndex(index);
-  //   setEditingText(text);
-  // };
+  const handleEditText = (index: number, text: string) => {
+    setEditingIndex(index);
+    setEditingText(text);
+  };
 
-  // const handleSaveEdit = (index: number) => {
-  //   const newSuggestions = [...suggestions];
-  //   newSuggestions[index] = editingText;
-  //   setSuggestions(newSuggestions);
-  //   setEditingIndex(null);
-  //   setEditingText('');
-  // };
+  const handleSaveEdit = (index: number) => {
+    const newSuggestions = [...suggestions];
+    newSuggestions[index] = editingText;
+    setSuggestions(newSuggestions);
+    setEditingIndex(null);
+    setEditingText('');
+  };
 
-  // const handleCancelEdit = () => {
-  //   setEditingIndex(null);
-  //   setEditingText('');
-  // };
-
-  // const handleSaveChange = () => {
-  //   if (selectedText && onElementSave) {
-  //     onElementSave(element.id, element.originalText, selectedText);
-  //     
-  //     // Show saved notification
-  //     setShowSavedNotification(true);
-  //     setTimeout(() => setShowSavedNotification(false), 3000); // Hide after 3 seconds
-  //   }
-  // };
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditingText('');
+  };
 
   const isSelected = selectedText !== null;
 
@@ -244,8 +244,7 @@ export function DropdownSection({
             </Card>
           </div>
 
-          {/* AI Suggestions - COMMENTED OUT - UNDER CONSTRUCTION */}
-          {/* 
+          {/* AI Suggestions */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-5 h-5 text-chart-1" />
@@ -256,7 +255,15 @@ export function DropdownSection({
             </div>
             
             <div className="space-y-3">
-              {suggestions.map((suggestion, index) => (
+              {suggestions.length === 0 ? (
+                <Card className="p-4 border-border bg-card/50">
+                  <div className="text-center text-muted-foreground">
+                    <p className="text-sm">AI suggestions temporarily unavailable</p>
+                    <p className="text-xs mt-1">You can still use the original content or add custom alternatives</p>
+                  </div>
+                </Card>
+              ) : (
+                suggestions.map((suggestion, index) => (
                 <Card 
                   key={index}
                   className={`p-4 cursor-pointer transition-all duration-200 hover:shadow-md group border-border bg-card ${
@@ -366,7 +373,8 @@ export function DropdownSection({
                     </div>
                   )}
                 </Card>
-              ))}
+              ))
+              )}
             </div>
 
             <div className="mt-6 text-center">
@@ -390,57 +398,6 @@ export function DropdownSection({
                 )}
               </Button>
             </div>
-
-            {selectedText && selectedText !== element.originalText && (
-              <div className="mt-6 pt-6 border-t border-border">
-                <div className="flex justify-start items-center gap-4">
-                  <Button
-                    onClick={handleSaveChange}
-                    className="bg-gradient-to-r from-chart-1 to-chart-2 text-white hover:opacity-90 transition-opacity"
-                  >
-                    <Check className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </Button>
-                  
-                  {showSavedNotification && (
-                    <div className="bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 text-green-800 dark:text-green-200 px-3 py-1 rounded-lg text-sm flex items-center gap-2">
-                      <Check className="w-3 h-3" />
-                      Saved!
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          */}
-          
-          {/* AI Suggestions Under Construction */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-muted-foreground" />
-              <h4 className="font-medium text-foreground">AI-Generated Alternatives</h4>
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
-                Under Construction
-              </Badge>
-            </div>
-            
-            <Card className="p-8 border-dashed border-2 border-muted-foreground/30 bg-muted/10">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 mx-auto bg-yellow-100 rounded-full flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-yellow-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground mb-2">AI Suggestions Coming Soon</h3>
-                  <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                    We're working hard to bring you intelligent AI-powered optimization suggestions. 
-                    This feature will be available soon to help you create better converting content.
-                  </p>
-                </div>
-                <Badge variant="outline" className="bg-background border-yellow-300 text-yellow-700">
-                  🚧 Under Development
-                </Badge>
-              </div>
-            </Card>
           </div>
         </div>
       )}
